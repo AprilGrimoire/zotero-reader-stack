@@ -1,0 +1,15 @@
+#reader-position-stack-preferences .reader-position-stack-pref-note {
+  margin: 0 0 12px;
+}
+
+#reader-position-stack-preferences .reader-position-stack-shortcut-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(12em, 22em);
+  gap: 8px 12px;
+  align-items: center;
+}
+
+#reader-position-stack-preferences .reader-position-stack-shortcut-grid input {
+  width: 100%;
+  box-sizing: border-box;
+}

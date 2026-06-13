@@ -1,0 +1,10 @@
+{
+  "name": "zotero-reader-position-stack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persistent per-document undo-tree for Zotero Reader positions.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "build": "bash scripts/build-xpi.sh"
+  }
+}

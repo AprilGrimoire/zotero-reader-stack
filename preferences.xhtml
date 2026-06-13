@@ -1,0 +1,46 @@
+<vbox id="reader-position-stack-preferences"
+      xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+      xmlns:html="http://www.w3.org/1999/xhtml">
+  <groupbox>
+    <label><html:h2>Keyboard Shortcuts</html:h2></label>
+    <html:p class="reader-position-stack-pref-note">
+      Enter shortcuts such as Accel+Alt+P, Ctrl+Shift+[, or Delete. Leave a field blank to disable its shortcut.
+    </html:p>
+    <html:div class="reader-position-stack-shortcut-grid">
+      <html:label for="reader-position-stack-shortcut-push">Push Position</html:label>
+      <html:input id="reader-position-stack-shortcut-push"
+                  type="text"
+                  preference="extensions.reader-position-stack.shortcuts.push"/>
+
+      <html:label for="reader-position-stack-shortcut-pop">Pop Position</html:label>
+      <html:input id="reader-position-stack-shortcut-pop"
+                  type="text"
+                  preference="extensions.reader-position-stack.shortcuts.pop"/>
+
+      <html:label for="reader-position-stack-shortcut-forward">Forward Branch</html:label>
+      <html:input id="reader-position-stack-shortcut-forward"
+                  type="text"
+                  preference="extensions.reader-position-stack.shortcuts.forward"/>
+
+      <html:label for="reader-position-stack-shortcut-select">Select Position</html:label>
+      <html:input id="reader-position-stack-shortcut-select"
+                  type="text"
+                  preference="extensions.reader-position-stack.shortcuts.select"/>
+
+      <html:label for="reader-position-stack-shortcut-delete-node">Delete Current Node</html:label>
+      <html:input id="reader-position-stack-shortcut-delete-node"
+                  type="text"
+                  preference="extensions.reader-position-stack.shortcuts.delete-node"/>
+
+      <html:label for="reader-position-stack-shortcut-delete-children">Delete Current Children</html:label>
+      <html:input id="reader-position-stack-shortcut-delete-children"
+                  type="text"
+                  preference="extensions.reader-position-stack.shortcuts.delete-children"/>
+
+      <html:label for="reader-position-stack-shortcut-undo-delete">Undo Delete</html:label>
+      <html:input id="reader-position-stack-shortcut-undo-delete"
+                  type="text"
+                  preference="extensions.reader-position-stack.shortcuts.undo-delete"/>
+    </html:div>
+  </groupbox>
+</vbox>
