@@ -1,8 +1,8 @@
 # Zotero Reader Position Stack
 
-Zotero Reader Position Stack is a Zotero desktop plugin that adds an explicit, persistent position tree for each reader attachment. It is useful when reading papers or books non-linearly and you want to save positions, move back to a parent position, and return to branches without relying on Zotero's normal linear navigation history.
+Zotero Reader Position Stack is a Zotero desktop plugin that adds an explicit, persistent position tree for each reader attachment. It is useful when reading papers or books non-linearly and you want movable reading positions, move back to a parent position, and return to branches without relying on Zotero's normal linear navigation history.
 
-The plugin stores Zotero reader positions as opaque restorable payloads. The tree model is independent of PDF, EPUB, or snapshot-specific details.
+Each tree element is the live position for that branch: while you read, the current node moves with the reader. The plugin stores Zotero reader positions as opaque restorable payloads, so the tree model is independent of PDF, EPUB, or snapshot-specific details.
 
 ## Features
 
@@ -47,9 +47,9 @@ Restart Zotero after creating or changing the proxy.
 
 Open a PDF, EPUB, or snapshot in Zotero Reader and use `Go -> Reader Position Stack`.
 
-- `Push Position` stores the active reader position as a child of the current tree node.
-- `Pop Position` moves to the current node's parent, preserving the popped branch.
-- `Forward Branch` moves to the last-active child branch.
+- `Push Position` creates a child branch at the active reader position and makes it current.
+- `Pop Position` saves the current branch's latest reader position, then moves to the current node's parent.
+- `Forward Branch` saves the current branch's latest reader position, then moves to the last-active child branch.
 - `Select Position...` opens the tree selector.
 - `Delete Current Node` deletes the current node subtree, except the root.
 - `Delete Current Children` deletes all children of the current node.
@@ -64,7 +64,7 @@ Inside the tree selector:
 - `Shift+Delete` deletes the selected node's children.
 - `Escape` closes the selector.
 
-The selector updates while it is open when the active position changes.
+The selector updates while it is open when the active position moves.
 
 ## Keyboard Shortcuts
 

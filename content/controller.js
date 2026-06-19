@@ -3,9 +3,23 @@
 
   const NS = global.Zotero.ReaderPositionStack = global.Zotero.ReaderPositionStack || {};
   const { TreeModel } = global.ReaderPositionStackTreeModel;
+  const POSITION_TRACK_INTERVAL_MS = 1500;
 
   function clone(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  }
+
+  function sameJSON(a, b) {
+    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  }
+
+  function displayMeta(meta) {
+    return {
+      label: meta?.label || "",
+      outlineText: meta?.outlineText || "",
+      pageLabel: meta?.pageLabel || null,
+      readerType: meta?.readerType || null
+    };
   }
 
   class Controller {
@@ -19,6 +33,9 @@
       this.started = false;
       this.windowListener = null;
       this.preferencePaneID = null;
+      this.positionTimer = null;
+      this.positionSyncRunning = false;
+      this.positionTrackingErrors = new Map();
     }
 
     async startup({ id, version, rootURI }) {
@@ -29,18 +46,21 @@
       await this.storage.init();
       this.started = true;
       this.installWindowListener();
+      this.startPositionTracker();
       for (let win of this.getOpenWindows()) {
         this.windowUI.register(win);
       }
     }
 
     async shutdown() {
+      this.stopPositionTracker();
       this.selector.close();
       this.windowUI.shutdown();
       this.removeWindowListener();
       this.unregisterPreferencePane();
       this.deleteUndoByItemID.clear();
       if (this.started) {
+        await this.persistOpenReaderPositions({ save: false });
         await this.storage.save();
       }
       this.started = false;
@@ -126,6 +146,115 @@
       this.windowListener = null;
     }
 
+    startPositionTracker() {
+      if (this.positionTimer || typeof Components === "undefined") {
+        return;
+      }
+      try {
+        this.positionTimer = Components.classes["@mozilla.org/timer;1"]
+          .createInstance(Components.interfaces.nsITimer);
+        this.positionTimer.initWithCallback({
+          notify: () => {
+            this.persistOpenReaderPositions().catch((e) => Zotero.logError(e));
+          }
+        }, POSITION_TRACK_INTERVAL_MS, Components.interfaces.nsITimer.TYPE_REPEATING_SLACK);
+      }
+      catch (e) {
+        Zotero.logError(e);
+        this.positionTimer = null;
+      }
+    }
+
+    stopPositionTracker() {
+      if (!this.positionTimer) {
+        return;
+      }
+      this.positionTimer.cancel();
+      this.positionTimer = null;
+    }
+
+    positionMatches(node, position, meta) {
+      return sameJSON(node.position, position) && sameJSON(displayMeta(node.meta), displayMeta(meta));
+    }
+
+    async syncCurrentPosition(win, { save = false, refresh = false } = {}) {
+      let captured = await this.adapter.capture(win);
+      let tree = this.storage.getTree(captured.itemID);
+      let node = this.model.getCurrentNode(tree);
+      let changed = !this.positionMatches(node, captured.payload, captured.meta);
+      if (changed) {
+        node = this.model.updateCurrentPosition(tree, captured.payload, captured.meta);
+        if (save) {
+          await this.storage.save();
+        }
+        if (refresh) {
+          this.refreshSelector(win, captured.itemID, tree);
+        }
+      }
+      this.positionTrackingErrors.delete(String(captured.itemID));
+      return {
+        itemID: captured.itemID,
+        tree,
+        reader: this.adapter.getActiveReader(win),
+        node,
+        changed,
+        captured
+      };
+    }
+
+    async trySyncCurrentPosition(win, options = {}) {
+      try {
+        return await this.syncCurrentPosition(win, options);
+      }
+      catch (e) {
+        if (options.notify) {
+          throw e;
+        }
+        if (options.log) {
+          this.logTrackingError(win, e);
+        }
+        return null;
+      }
+    }
+
+    logTrackingError(win, error) {
+      let reader = this.adapter.getActiveReader(win);
+      if (!reader?.itemID) {
+        return;
+      }
+      let key = String(reader.itemID);
+      let message = error?.message || String(error);
+      if (this.positionTrackingErrors.get(key) === message) {
+        return;
+      }
+      this.positionTrackingErrors.set(key, message);
+      Zotero.logError(error);
+    }
+
+    async persistOpenReaderPositions({ save = true } = {}) {
+      if (this.positionSyncRunning) {
+        return false;
+      }
+      this.positionSyncRunning = true;
+      let changed = false;
+      try {
+        for (let win of this.getOpenWindows()) {
+          if (!this.adapter.getActiveReader(win)) {
+            continue;
+          }
+          let result = await this.trySyncCurrentPosition(win, { refresh: true, log: true });
+          changed = changed || !!result?.changed;
+        }
+        if (changed && save) {
+          await this.storage.save();
+        }
+        return changed;
+      }
+      finally {
+        this.positionSyncRunning = false;
+      }
+    }
+
     getActiveTree(win, options = {}) {
       let reader = this.adapter.getActiveReader(win);
       if (!reader) {
@@ -153,7 +282,7 @@
           return await this.forward(win);
         }
         if (command === "select") {
-          return this.openSelector(win);
+          return await this.openSelector(win);
         }
         if (command === "delete-node") {
           return await this.deleteNode(win, nodeID);
@@ -177,6 +306,7 @@
     async push(win) {
       let captured = await this.adapter.capture(win);
       let tree = this.storage.getTree(captured.itemID);
+      this.model.updateCurrentPosition(tree, captured.payload, captured.meta);
       let node = this.model.push(tree, captured.payload, captured.meta);
       await this.storage.save();
       this.refreshSelector(win, captured.itemID, tree);
@@ -184,7 +314,7 @@
     }
 
     async pop(win) {
-      let info = this.getActiveTree(win);
+      let info = await this.syncCurrentPosition(win);
       if (!info) {
         return null;
       }
@@ -202,7 +332,7 @@
     }
 
     async forward(win) {
-      let info = this.getActiveTree(win);
+      let info = await this.syncCurrentPosition(win);
       if (!info) {
         return null;
       }
@@ -217,8 +347,9 @@
       return node;
     }
 
-    openSelector(win) {
-      let info = this.getActiveTree(win);
+    async openSelector(win) {
+      let info = await this.trySyncCurrentPosition(win, { save: true });
+      info ||= this.getActiveTree(win);
       if (!info) {
         return null;
       }
@@ -227,6 +358,7 @@
     }
 
     async navigateToNode(win, itemID, nodeID) {
+      await this.syncCurrentPosition(win);
       let tree = this.storage.getTree(itemID);
       let node = this.model.visit(tree, nodeID);
       await this.storage.save();
@@ -239,7 +371,7 @@
     }
 
     async deleteNode(win, nodeID = null) {
-      let info = this.getActiveTree(win);
+      let info = await this.syncCurrentPosition(win);
       if (!info) {
         return null;
       }
@@ -257,7 +389,7 @@
     }
 
     async deleteChildren(win, nodeID = null) {
-      let info = this.getActiveTree(win);
+      let info = await this.syncCurrentPosition(win);
       if (!info) {
         return null;
       }
@@ -275,7 +407,7 @@
     }
 
     async undoDelete(win) {
-      let info = this.getActiveTree(win);
+      let info = await this.syncCurrentPosition(win);
       if (!info) {
         return null;
       }
@@ -304,7 +436,7 @@
     }
 
     refreshSelector(win, itemID, tree) {
-      if (this.selector.panel) {
+      if (this.selector.panel && this.selector.panel.ownerDocument === win.document) {
         this.selector.render(win, itemID, tree);
         this.selector.focusSelected();
       }

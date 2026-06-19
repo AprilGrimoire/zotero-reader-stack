@@ -27,6 +27,20 @@ test("push, pop, and forward preserve branches", () => {
   assert.equal(model.forward(tree).id, c.id);
 });
 
+test("current node position can move after it is created", () => {
+  let model = makeModel();
+  let tree = model.ensureTree(model.createStore(), 10);
+
+  let a = model.push(tree, { location: { pageIndex: 1 } }, { label: "Page 2" });
+  model.updateCurrentPosition(tree, { location: { pageIndex: 9 } }, { label: "Page 10" });
+
+  assert.deepEqual(tree.nodes[a.id].position, { location: { pageIndex: 9 } });
+  assert.equal(tree.nodes[a.id].meta.label, "Page 10");
+
+  model.pop(tree);
+  assert.equal(model.forward(tree).position.location.pageIndex, 9);
+});
+
 test("root is synthetic and undeletable", () => {
   let model = makeModel();
   let tree = model.ensureTree(model.createStore(), 10);

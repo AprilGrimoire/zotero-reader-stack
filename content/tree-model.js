@@ -95,6 +95,18 @@
       return tree.nodes[tree.currentID] || tree.nodes[tree.rootID];
     }
 
+    updateCurrentPosition(tree, position, meta = {}) {
+      this.repairTree(tree);
+      let node = this.getCurrentNode(tree);
+      node.position = clone(position);
+      node.meta = {
+        ...node.meta,
+        ...clone(meta),
+        lastVisitedAt: this.now()
+      };
+      return node;
+    }
+
     push(tree, position, meta = {}) {
       this.repairTree(tree);
       let parent = this.getCurrentNode(tree);
